@@ -80,6 +80,7 @@ for my $fake (keys %fake) {
 
 my %stash = (
   build_date => \( DateTime->now(time_zone => 'local')->ymd ),
+  recent     => $recent,
   summary    => {
     mb      => $size,
     fakes   => scalar keys %fake,
