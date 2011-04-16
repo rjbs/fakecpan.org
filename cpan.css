@@ -1,0 +1,38 @@
+body {
+  color:black;
+  background:white;
+  margin-left:2%;
+  margin-right:2%;
+}
+
+h1 {
+  text-align:center;
+}
+
+img {
+  vertical-align: 50%;
+  border: 0;
+}
+
+.left {
+  text-align:left;
+  float:none;
+}
+
+.center {
+  text-align:center;
+  float:none;
+}
+
+.right {
+  text-align:right;
+  float:none;
+}
+
+table.fakes {
+  border-collapse: collapse;
+}
+
+table.fakes td {
+  border: 1px black solid;
+}

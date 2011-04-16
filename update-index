@@ -1,0 +1,107 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+use autodie;
+use DateTime;
+use DateTime::Format::W3CDTF;
+use File::chdir;
+use File::Find::Rule;
+use JSON 2;
+use Text::Template;
+
+my @dirs = File::Find::Rule->mindepth(1)->directory->in('fake');
+
+my %id   = map {; m{/id/./../([^/]+)\z}; defined $1 ? ($1 => 1) : () } @dirs;
+my %fake = map {; m{\Afake/([-a-z]+)/};  defined $1 ? ($1 => 1) : () } @dirs;
+
+my $line = `du -sm fake`;
+my ($size) = split /\s/, $line;
+
+my $update_recent = 0;
+my $recent = ! -e 'recent.json' ? [] : do {
+  open my $recent_in, '<', 'recent.json';
+  my $recent_json = do { local $/; <$recent_in> };
+  JSON->new->decode($recent_json);
+};
+
+my $w3c = DateTime::Format::W3CDTF->new;
+
+FAKE: for my $fake (keys %fake) {
+  local $CWD = "fake/$fake";
+
+  my @vers = sort { $b cmp $a }
+             grep { /^[0-9]/ }
+             File::Find::Rule->maxdepth(1)->directory->in('.');
+
+  my $latest = $vers[0];
+  $fake{ $fake } = { latest => $latest };
+
+  if (-e 'latest') {
+    next FAKE if readlink('latest') eq $latest;
+    warn "will relink $fake\n";
+    unlink 'latest';
+  }
+
+  $update_recent = 1;
+  unshift @$recent, {
+    ident      => $fake,
+    version    => $latest,
+    indexed_at => $w3c->format_datetime(DateTime->now(time_zone => 'local')),
+  };
+
+  symlink $latest => 'latest';
+}
+
+$#$recent = 9 if @$recent > 10;
+
+open my $json_out, '>', 'recent.json';
+print { $json_out } JSON->new->ascii(1)->encode($recent), "\n";
+close $json_out;
+
+my $module_count = 0;
+for my $fake (keys %fake) {
+  my $index    = "fake/$fake/latest/cpan/modules/02packages.details.txt.gz";
+  my $contents = `gzcat $index`;
+  my ($header, $rest) = split /^$/m, $contents;
+  my @lines = split /\n/, $rest;
+  $module_count += @lines;
+}
+
+my %stash = (
+  build_date => \( DateTime->now(time_zone => 'local')->ymd ),
+  summary    => {
+    mb      => $size,
+    fakes   => scalar keys %fake,
+    authors => scalar keys %id,
+    modules => $module_count,
+  },
+);
+
+my $index_template = Text::Template->new(
+  TYPE   => 'file',
+  SOURCE => 'source/index.tmpl',
+  DELIMITERS => [ qw({{ }}) ],
+);
+
+open my $out, '>', 'index.html';
+print { $out } $index_template->fill_in(HASH => \%stash);
+
+
+my $recent_template = Text::Template->new(
+  TYPE   => 'file',
+  SOURCE => 'source/recent.tmpl',
+  DELIMITERS => [ qw({{ }}) ],
+);
+
+open my $recent_out, '>', 'recent.html';
+print { $recent_out } $recent_template->fill_in(HASH => { recents => $recent });
+
+my $fakes_template = Text::Template->new(
+  TYPE   => 'file',
+  SOURCE => 'source/fakes.tmpl',
+  DELIMITERS => [ qw({{ }}) ],
+);
+
+open my $fakes_out, '>', 'fake/index.html';
+print { $fakes_out } $fakes_template->fill_in(HASH => { fakes => \%fake });

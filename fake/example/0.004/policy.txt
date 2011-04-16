@@ -1,0 +1,6 @@
+
+This example fake CPAN exists entirely to show how a fake CPAN will work.
+
+As of this version, no guarantees are made about how future versions will
+change.  Anything is fair game.
+
