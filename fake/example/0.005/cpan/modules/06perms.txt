@@ -1,0 +1,19 @@
+File:         02packages.details.txt
+URL:          file:///Users/rjbs/code/cs/CPAN-Faker/0.005/modules/02packages.details.txt.gz
+Description:  Package names found in directory $CPAN/authors/id/
+Columns:      package name, version, path
+Intended-For: Automated fetch routines, namespace documentation.
+Written-By:   CPAN::Faker version 
+Line-Count:   10
+Last-Updated: Sat Apr 16 12:34:44 2011 GMT
+
+Mostly::Auto,LOCAL,f
+Multi::Relevant::Added,LOCAL,f
+Multi::Relevant::Dropped,LOCAL,f
+Multi::Relevant::Sane,LOCAL,f
+Multi::Relevant::Stale,LOCAL,f
+Provides::Inner,LOCAL,f
+Provides::Inner::Util,LOCAL,f
+Provides::Outer,LOCAL,f
+Simple::Prereq,LOCAL,f
+Versioned,LOCAL,f

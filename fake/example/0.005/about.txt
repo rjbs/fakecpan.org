@@ -1,0 +1,3 @@
+
+This fake CPAN is generated from the example data in CPAN::Faker.
+

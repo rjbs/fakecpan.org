@@ -1,0 +1,59 @@
+# CHECKSUMS file written on Sat Apr 16 12:34:44 2011 GMT by CPAN::Checksums (v2.07)
+$cksum = {
+  'Mostly-Auto-0.01.tar.gz' => {
+    'md5' => 'a7d0dc3e1a4d3a7bd661cf7742db782d',
+    'md5-ungz' => '4425a0156ade59f807bd93fd363588b0',
+    'mtime' => '2011-04-16',
+    'sha256' => 'e686dc947de921bd70f7d0b755793579355161c60c1513c0bdeb1fc3800eb027',
+    'sha256-ungz' => '554e0b4ca14197656ec9ac64830fea4a31ab7cf2e62d587c3ad613cca715bd88',
+    'size' => 660
+  },
+  'Multi-Relevant-1.00.tar.gz' => {
+    'md5' => '96b68ec48e9ebd2a9bd712f331bb704a',
+    'md5-ungz' => 'e0d6968eba9820ae846fefe5955c5054',
+    'mtime' => '2011-04-16',
+    'sha256' => 'f46c0c939129e09afce85ab49ddcc7a4abe67ac33722ef8a42e712355e6924e5',
+    'sha256-ungz' => '975ebd8e264dd8a039c5c28fd8cd6b1d9995d76af83a1ad5bae4eb5422ad805c',
+    'size' => 764
+  },
+  'Multi-Relevant-2.00.tar.gz' => {
+    'md5' => '75c0b2a5d590ea61d48a899b04eeb768',
+    'md5-ungz' => '0e325cf560d756113a18811100d1d29c',
+    'mtime' => '2011-04-16',
+    'sha256' => '3eec620018a10f2cabcb154d060797452bee76175aac7844dfdb55177f054f7d',
+    'sha256-ungz' => 'f375497f1669f8ed35c29498c2c5d32c64793df99664d21c33b2f93f3f10b247',
+    'size' => 771
+  },
+  'Provides-Inner-0.01.tar.gz' => {
+    'md5' => '0f950bb5db80cad72ee4f0f733dac5c7',
+    'md5-ungz' => 'c56bd30ee31ca630d6cbe0bf8fc1ff0e',
+    'mtime' => '2011-04-16',
+    'sha256' => '7b87abeb8d933c72f569f85d06246076763774ae08dd8aedc206e78650a57318',
+    'sha256-ungz' => 'f44cd568ea41485e000af1befa4094f6e68b55ba4ff31998bf87f59f3d45aca2',
+    'size' => 730
+  },
+  'Simple-Prereq-0.01.tar.gz' => {
+    'md5' => 'ecf335abf45fe58227625e35afffdeae',
+    'md5-ungz' => 'e20508c44e6c2da62ef6fbdc8851c935',
+    'mtime' => '2011-04-16',
+    'sha256' => '9db305fa67437bf47b3348e887aad70079908f48438c81cd14a55c1d13cfa635',
+    'sha256-ungz' => '4b89f5bf80a5a0c8d7b5735b250cc8347cc8e7b98517f12c8cf0432865475ddb',
+    'size' => 724
+  },
+  'Versioned-1.00.tar.gz' => {
+    'md5' => '106fd54e5391165524c35e5e1835a93a',
+    'md5-ungz' => 'ce94f75102bb688724e66037368be351',
+    'mtime' => '2011-04-16',
+    'sha256' => '661c2729e6059a7fd603ce0e73594a55ac2054e994f8538ab85d962b59721a02',
+    'sha256-ungz' => '4095390451b8c5c8476df65753feabde3acb61b593ccbda9ba34972ea2657503',
+    'size' => 641
+  },
+  'Versioned-2.00.tar.gz' => {
+    'md5' => '860fb680ce4b376f060985c29ca39bc3',
+    'md5-ungz' => '366d9b4ee3a044417d32b8569587a5b2',
+    'mtime' => '2011-04-16',
+    'sha256' => '45d732b52f38db6145f26f94478c1c6ced8d041428c912ec6e4d09181bcbaa14',
+    'sha256-ungz' => '7dd31cba894bae2ef6432ae552c6e4360f33a952cd9a880d3b50ad167605fda5',
+    'size' => 640
+  }
+};
