@@ -7,8 +7,18 @@ use DateTime;
 use DateTime::Format::W3CDTF;
 use File::chdir;
 use File::Find::Rule;
+use Getopt::Long::Descriptive;
 use JSON 2;
 use Text::Template;
+
+my ($opt, $usage) = describe_options(
+  '%c %o',
+  [ 'root=s',           'the root of the fakecpan', { required => 1 } ],
+
+  # we will look here before looking in a sharedir or something -- rjbs,
+  # 2011-04-16
+  [ 'template-dir|t=s', 'the directory in which to find templates'    ],
+);
 
 my @dirs = File::Find::Rule->mindepth(1)->directory->in('fake');
 
