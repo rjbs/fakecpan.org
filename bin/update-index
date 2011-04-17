@@ -1,14 +1,16 @@
 #!/usr/bin/env perl
-use strict;
+use 5.12.0;
 use warnings;
 
 use autodie;
 use DateTime;
 use DateTime::Format::W3CDTF;
 use File::chdir;
+use File::Copy;
 use File::Find::Rule;
 use Getopt::Long::Descriptive;
 use JSON 2;
+use Path::Class;
 use Text::Template;
 
 my ($opt, $usage) = describe_options(
@@ -20,99 +22,154 @@ my ($opt, $usage) = describe_options(
   [ 'template-dir|t=s', 'the directory in which to find templates'    ],
 );
 
-my @dirs = File::Find::Rule->mindepth(1)->directory->in('fake');
+my $FAKECPAN_ROOT = dir($opt->root);
+my $FAKES_DIR     = $FAKECPAN_ROOT->subdir('fake');
 
-my %id   = map {; m{/id/./../([^/]+)\z}; defined $1 ? ($1 => 1) : () } @dirs;
-my %fake = map {; m{\Afake/([-a-z]+)/};  defined $1 ? ($1 => 1) : () } @dirs;
+my $TEMPLATE_ROOT = dir($opt->template_dir || 'src');
 
-my $line = `du -sm fake`;
-my ($size) = split /\s/, $line;
+my @FAKE_NAMES = map { $_->dir_list(-1) } grep { -d } $FAKES_DIR->children;
 
-my $update_recent = 0;
-my $recent = ! -e 'recent.json' ? [] : do {
-  open my $recent_in, '<', 'recent.json';
-  my $recent_json = do { local $/; <$recent_in> };
-  JSON->new->decode($recent_json);
-};
+my @author_names = get_author_names($FAKES_DIR, \@FAKE_NAMES);
+my $size         = get_size($FAKES_DIR);
 
-my $w3c = DateTime::Format::W3CDTF->new;
+my ($recent, $latest) = relink_latests($FAKES_DIR, \@FAKE_NAMES);
 
-FAKE: for my $fake (keys %fake) {
-  local $CWD = "fake/$fake";
+my $module_count = count_modules($FAKES_DIR, \@FAKE_NAMES);
 
-  my @vers = sort { $b cmp $a }
-             grep { /^[0-9]/ }
-             File::Find::Rule->maxdepth(1)->directory->in('.');
-
-  my $latest = $vers[0];
-  $fake{ $fake } = { latest => $latest };
-
-  if (-e 'latest') {
-    next FAKE if readlink('latest') eq $latest;
-    warn "will relink $fake\n";
-    unlink 'latest';
-  }
-
-  $update_recent = 1;
-  unshift @$recent, {
-    ident      => $fake,
-    version    => $latest,
-    indexed_at => $w3c->format_datetime(DateTime->now(time_zone => 'local')),
-  };
-
-  symlink $latest => 'latest';
-}
-
-$#$recent = 9 if @$recent > 10;
-
-open my $json_out, '>', 'recent.json';
-print { $json_out } JSON->new->ascii(1)->encode($recent), "\n";
-close $json_out;
-
-my $module_count = 0;
-for my $fake (keys %fake) {
-  my $index    = "fake/$fake/latest/cpan/modules/02packages.details.txt.gz";
-  my $contents = `gzcat $index`;
-  my ($header, $rest) = split /^$/m, $contents;
-  my @lines = split /\n/, $rest;
-  $module_count += @lines;
-}
+rewrite_recent_json($FAKECPAN_ROOT, $recent);
 
 my %stash = (
   build_date => \( DateTime->now(time_zone => 'local')->ymd ),
-  recent     => $recent,
+  recents    => $recent,
+  latest     => $latest,
   summary    => {
     mb      => $size,
-    fakes   => scalar keys %fake,
-    authors => scalar keys %id,
+    fakes   => 0+@FAKE_NAMES,
+    authors => 0+@author_names,
     modules => $module_count,
   },
 );
 
-my $index_template = Text::Template->new(
-  TYPE   => 'file',
-  SOURCE => 'source/index.tmpl',
-  DELIMITERS => [ qw({{ }}) ],
-);
+for my $file ( File::Find::Rule->file->in( $TEMPLATE_ROOT ) ) {
+  warn $file; next;
+  $file = dir( $file )->relative($TEMPLATE_ROOT);
+  if ($file =~ /\.tmpl$/) {
+    (my $install_as = $file) =~ s/\.tmpl$//;
+    $install_as = $FAKECPAN_ROOT->file( $install_as);
 
-open my $out, '>', 'index.html';
-print { $out } $index_template->fill_in(HASH => \%stash);
+    my $template = Text::Template->new(
+      TYPE   => 'file',
+      SOURCE => $file,
+      DELIMITERS => [ qw({{ }}) ],
+    );
 
+    warn "rendering $file to $install_as\n";
 
-my $recent_template = Text::Template->new(
-  TYPE   => 'file',
-  SOURCE => 'source/recent.tmpl',
-  DELIMITERS => [ qw({{ }}) ],
-);
+    open my $out, '>', $install_as;
+    print { $out } $template->fill_in(HASH => \%stash);
+  } else {
+    my $install_as = $FAKECPAN_ROOT->file($file);
+    warn "copying $file to $install_as\n";
+    copy $file => $install_as;
+  }
+}
 
-open my $recent_out, '>', 'recent.html';
-print { $recent_out } $recent_template->fill_in(HASH => { recents => $recent });
+## SUBROUTINES LIE BENEATH THIS LINE
 
-my $fakes_template = Text::Template->new(
-  TYPE   => 'file',
-  SOURCE => 'source/fakes.tmpl',
-  DELIMITERS => [ qw({{ }}) ],
-);
+sub get_author_names {
+  my ($fake_root, $fake_names) = @_;
 
-open my $fakes_out, '>', 'fake/index.html';
-print { $fakes_out } $fakes_template->fill_in(HASH => { fakes => \%fake });
+  my %author_id;
+  # This is probably the stupidest way to generate this, but it's what I've got,
+  # and I'm *tired*. -- rjbs, 2011-04-17
+  for my $fake (@$fake_names) {
+    my $fake_dir = $fake_root->subdir($fake);
+
+    for my $version (grep { -d and ! -l } $fake_dir->children) {
+      my @author_dirs = File::Find::Rule
+                      ->mindepth(3)
+                      ->maxdepth(3)
+                      ->directory
+                      ->in( $version->subdir(qw(cpan authors id)) );
+
+      $author_id{ dir($_)->dir_list(-1) } = 1 for @author_dirs;
+    }
+  }
+
+  return keys %author_id;
+}
+
+sub get_size {
+  my ($fake_root) = @_;
+
+  my $line = `du -sm $fake_root`;
+  my ($size) = split /\s/, $line;
+  return $size;
+}
+
+sub relink_latests {
+  my ($fake_root, $fake_names) = @_;
+
+  my $recent = ! -e $fake_root->file('recent.json') ? [] : do {
+    open my $recent_in, '<', $fake_root->file('recent.json');
+    my $recent_json = do { local $/; <$recent_in> };
+    JSON->new->decode($recent_json);
+  };
+
+  my $w3c = DateTime::Format::W3CDTF->new;
+
+  my %latest;
+
+  FAKE: for my $fake (@$fake_names) {
+    local $CWD = "fake/$fake";
+
+    my @vers = sort { $b cmp $a }
+               grep { /^[0-9]/ }
+               File::Find::Rule->maxdepth(1)->directory->in('.');
+
+    my $latest = $vers[0];
+    $latest{ $fake } = $latest;
+
+    if (-e 'latest') {
+      next FAKE if readlink('latest') eq $latest;
+      warn "will relink $fake\n";
+      unlink 'latest';
+    }
+
+    unshift @$recent, {
+      ident      => $fake,
+      version    => $latest,
+      indexed_at => $w3c->format_datetime(DateTime->now(time_zone => 'local')),
+    };
+
+    symlink $latest => 'latest';
+  }
+
+  $#$recent = 9 if @$recent > 10;
+
+  return($recent, \%latest);
+}
+
+sub rewrite_recent_json {
+  my ($fakecpan_root, $recent) = @_;
+
+  open my $json_out, '>', $fakecpan_root->file('recent.json');
+  print { $json_out } JSON->new->ascii(1)->encode($recent), "\n";
+  close $json_out;
+}
+
+sub count_modules {
+  my ($fake_root, $fake_names) = @_;
+
+  my $module_count = 0;
+  for my $fake (@$fake_names) {
+    my $index    = "fake/$fake/latest/cpan/modules/02packages.details.txt.gz";
+    my $contents = `gzcat $index`;
+    my ($header, $rest) = split /^$/m, $contents;
+    my @lines = split /\n/, $rest;
+    $module_count += @lines;
+  }
+
+  return $module_count;
+}
+

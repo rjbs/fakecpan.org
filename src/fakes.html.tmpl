@@ -20,11 +20,11 @@
 </p>
 
 <table class='fakes'>
-  {{ for my $fake (sort keys %fakes) {
+  {{ for my $fake (sort @fake_names) {
       $OUT .= <<"END_ROW";
   <tr>
     <td><a href='$fake/latest/about.txt'>$fake</a></td>
-    <td>$fakes{ $fake }{latest}</a></td>
+    <!-- <td>$fakes{ $fake }{latest}</a></td> -->
   </tr>
 END_ROW
     }

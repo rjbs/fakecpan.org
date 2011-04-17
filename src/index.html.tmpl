@@ -87,7 +87,7 @@
 
               <ul>
               {{
-                for my $fake (@recent) {
+                for my $fake (@recents) {
                   $OUT .= sprintf(qq[<li><a
                   href='fake/$fake->{ident}/$fake->{version}/about.txt'>$fake->{ident} $fake->{version}</a></li>\n]);
                 }
