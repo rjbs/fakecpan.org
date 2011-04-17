@@ -10,6 +10,7 @@ use File::Copy;
 use File::Find::Rule;
 use Getopt::Long::Descriptive;
 use JSON 2;
+use Log::Dispatchouli;
 use Path::Class;
 use Text::Template;
 
@@ -22,6 +23,11 @@ my ($opt, $usage) = describe_options(
   [ 'template-dir|t=s', 'the directory in which to find templates'    ],
 );
 
+my $Logger = Log::Dispatchouli->new({
+  ident     => 'update-fakecpan',
+  to_stdout => 1,
+});
+
 my $FAKECPAN_ROOT = dir($opt->root);
 my $FAKES_DIR     = $FAKECPAN_ROOT->subdir('fake');
 
@@ -32,7 +38,7 @@ my @FAKE_NAMES = map { $_->dir_list(-1) } grep { -d } $FAKES_DIR->children;
 my @author_names = get_author_names($FAKES_DIR, \@FAKE_NAMES);
 my $size         = get_size($FAKES_DIR);
 
-my ($recent, $latest) = relink_latests($FAKES_DIR, \@FAKE_NAMES);
+my ($recent, $latest) = relink_latests($FAKECPAN_ROOT, \@FAKE_NAMES);
 
 my $module_count = count_modules($FAKES_DIR, \@FAKE_NAMES);
 
@@ -42,6 +48,7 @@ my %stash = (
   build_date => \( DateTime->now(time_zone => 'local')->ymd ),
   recents    => $recent,
   latest     => $latest,
+  fake_names => \@FAKE_NAMES,
   summary    => {
     mb      => $size,
     fakes   => 0+@FAKE_NAMES,
@@ -63,7 +70,7 @@ for my $file ( File::Find::Rule->file->in( $TEMPLATE_ROOT ) ) {
       DELIMITERS => [ qw({{ }}) ],
     );
 
-    warn "rendering $file to $install_as\n";
+    $Logger->log("rendering $file to $install_as");
 
     open my $out, '>', $install_as;
     print { $out } $template->fill_in(HASH => \%stash);
@@ -71,7 +78,7 @@ for my $file ( File::Find::Rule->file->in( $TEMPLATE_ROOT ) ) {
 
     my $install_as = $FAKECPAN_ROOT->file($rel_file);
     $install_as->dir->mkpath;
-    warn "copying $file to $install_as\n";
+    $Logger->log("copying $file to $install_as");
 
     copy $file => $install_as;
   }
@@ -111,10 +118,11 @@ sub get_size {
 }
 
 sub relink_latests {
-  my ($fake_root, $fake_names) = @_;
+  my ($fakecpan_root, $fake_names) = @_;
+  my $fakes_dir = $fakecpan_root->subdir('fake');
 
-  my $recent = ! -e $fake_root->file('recent.json') ? [] : do {
-    open my $recent_in, '<', $fake_root->file('recent.json');
+  my $recent = ! -e $fakecpan_root->file('recent.json') ? [] : do {
+    open my $recent_in, '<', $fakecpan_root->file('recent.json');
     my $recent_json = do { local $/; <$recent_in> };
     JSON->new->decode($recent_json);
   };
@@ -124,17 +132,23 @@ sub relink_latests {
   my %latest;
 
   FAKE: for my $fake (@$fake_names) {
+    my $fake_dir = $fakes_dir->subdir($fake);
+    $Logger->log_debug("looking for dirs in $fake_dir");
     my @vers = sort { $b cmp $a }
-               grep { /^[0-9]/ }
-               File::Find::Rule->maxdepth(1)->directory->in($fake_root);
+               map  { $_->dir_list(-1) }
+               grep { -d and not -l }
+               $fake_dir->children;
 
     my $latest = $vers[0];
     $latest{ $fake } = $latest;
 
-    if (-e 'latest') {
-      next FAKE if readlink('latest') eq $latest;
-      warn "will relink $fake\n";
-      unlink 'latest';
+    my $latest_link = $fake_dir->file('latest');
+
+    $Logger->log("going to make $latest the latest for $fake ($latest_link)");
+
+    if (-e $latest_link) {
+      next FAKE if readlink($latest_link) eq $latest;
+      unlink $latest_link;
     }
 
     unshift @$recent, {
@@ -143,7 +157,9 @@ sub relink_latests {
       indexed_at => $w3c->format_datetime(DateTime->now(time_zone => 'local')),
     };
 
-    symlink $latest => 'latest';
+
+    $Logger->log([  "symlink %s => %s\n", $latest, $fake_dir->file('latest') ]);
+    symlink $latest => $fake_dir->file('latest');
   }
 
   $#$recent = 9 if @$recent > 10;
@@ -160,11 +176,13 @@ sub rewrite_recent_json {
 }
 
 sub count_modules {
-  my ($fake_root, $fake_names) = @_;
+  my ($fakes_dir, $fake_names) = @_;
 
   my $module_count = 0;
   for my $fake (@$fake_names) {
-    my $index    = "fake/$fake/latest/cpan/modules/02packages.details.txt.gz";
+    my $index    = $fakes_dir->subdir($fake)->file(qw(
+      latest cpan modules 02packages.details.txt.gz
+    ));
     my $contents = `gzcat $index`;
     my ($header, $rest) = split /^$/m, $contents;
     my @lines = split /\n/, $rest;
