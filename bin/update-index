@@ -124,11 +124,9 @@ sub relink_latests {
   my %latest;
 
   FAKE: for my $fake (@$fake_names) {
-    local $CWD = "fake/$fake";
-
     my @vers = sort { $b cmp $a }
                grep { /^[0-9]/ }
-               File::Find::Rule->maxdepth(1)->directory->in('.');
+               File::Find::Rule->maxdepth(1)->directory->in($fake_root);
 
     my $latest = $vers[0];
     $latest{ $fake } = $latest;
