@@ -51,10 +51,10 @@ my %stash = (
 );
 
 for my $file ( File::Find::Rule->file->in( $TEMPLATE_ROOT ) ) {
-  warn $file; next;
-  $file = dir( $file )->relative($TEMPLATE_ROOT);
+  my $rel_file = dir( $file )->relative($TEMPLATE_ROOT);
+
   if ($file =~ /\.tmpl$/) {
-    (my $install_as = $file) =~ s/\.tmpl$//;
+    (my $install_as = $rel_file) =~ s/\.tmpl$//;
     $install_as = $FAKECPAN_ROOT->file( $install_as);
 
     my $template = Text::Template->new(
@@ -68,8 +68,11 @@ for my $file ( File::Find::Rule->file->in( $TEMPLATE_ROOT ) ) {
     open my $out, '>', $install_as;
     print { $out } $template->fill_in(HASH => \%stash);
   } else {
-    my $install_as = $FAKECPAN_ROOT->file($file);
+
+    my $install_as = $FAKECPAN_ROOT->file($rel_file);
+    $install_as->dir->mkpath;
     warn "copying $file to $install_as\n";
+
     copy $file => $install_as;
   }
 }
