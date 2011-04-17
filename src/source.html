@@ -3,7 +3,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-US">
 
 <head>
-  <title>Fake CPAN: The Fakes</title>
+  <title>Fake CPAN: The Source</title>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 
   <link rev="made" href="mailto:rjbs@cpan.org"></link>
@@ -12,26 +12,22 @@
 
 <body>
 
-<h1>Fake CPANs</h1>
+<h1>Fake CPAN's Source</h1>
 
 <p>
-  For information on how to use these fake CPANs, see <a href='../faq.html'>the
-  FAQ</a>.
+  The Fake CPAN is, right now, just files served statically.  It might be
+  provided by a web application in the future, to allow certain dynamic fake
+  CPANs, but right now that would be serious overkill.  Fake CPANs are copied
+  into the master <tt>./fake</tt> directory.
 </p>
 
-<table class='fakes'>
-  {{ for my $fake (sort keys %fakes) {
-      $OUT .= <<"END_ROW";
-  <tr>
-    <td><a href='$fake/latest/about.txt'>$fake</a></td>
-    <td>$fakes{ $fake }{latest}</a></td>
-  </tr>
-END_ROW
-    }
-  }}
-</table>
+<p>
+  The Fake CPAN's source will <em>always</em> be free.  At present, the source
+  can be found in a <a href='http://github.com/rjbs/fakecpan.org/'>GitHub
+  repository</a>.
+</p>
 
-<hr/>
+<hr />
 
 <table width="100%">
   <tr>

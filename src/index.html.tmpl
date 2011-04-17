@@ -1,0 +1,143 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-US">
+
+<head>
+  <title>Fake CPAN</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <!--
+      This page, especially the CSS, based on the *real* cpan.org site, which
+      is...
+
+      Copyright Jarkko Hietaniemi <jhi@iki.fi>
+      1998,1999,2000,2001,2003,2003,2004,2005,2008
+      All Rights Reserved.
+      The CPAN Logo provided by J.C. Thorpe.
+    -->
+  <link rev="made" href="mailto:rjbs@cpan.org"></link>
+  <link rel="stylesheet" href="cpan.css"></link>
+  <style>
+    .fake { color: #f00 }
+  </style>
+</head>
+
+<table id="wrapper" border="0" width="95%" cellspacing="0" cellpadding="2" align="center">
+  <tr>
+    <td id="header">
+
+      <div id="header_left">
+        <a href="index.html"><img src="images/cpan.png" id="logo" alt="CPAN" /></a>
+      </div>
+
+      <div id="header_right">
+
+        <h1><span class='fake'>Fake</span> Comprehensive Perl Archive Network</h1>
+        <p id="strapline">Bogus Code for Bogus Purposes</p>
+      </div>
+    </td>
+  </tr>
+  <tr>
+    <td id="menubar_holder">
+
+      <ul class="menubar">
+
+        <li><a href="index.html">Home</a></li>
+        <li><a href="fakes.html">Fakes</a></li>
+        <li><a href="source.html">Source</a></li>
+        <li><a href="faq.html">FAQ</a></li>
+
+      </ul>
+
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <div id="content">
+
+        <table border="0" cellspacing="0" cellpadding="0">
+          <tr>
+            <td class="third">
+            <h2>Welcome to <span class='fake'>Fake</span> CPAN</h2>
+
+            <p>
+              The Fake Comprehensive Perl Archive Network currently has
+              {{ $summary{modules} }} fake Perl
+              modules</a> in <a href='fakes.html'>{{ $summary{fakes} }} fake
+              CPANs</a>
+              written by {{ $summary{authors} }} authors and amounting to {{
+              $summary{mb} }} MB of fake stuff.
+            </p>
+
+            <p>The archive has been online since February 2010 and is slowly
+            growing.</p>
+
+            <h2>Search</h2>
+
+            <ul>
+              <li><a href="http://search.cpan.org">CPAN search</a></li>
+              <li><a href="http://search.metacpan.org/">MetaCPAN search</a></li>
+            </ul>
+
+          </td>
+
+          <td class="third">
+            <div style="margin-left: 20px">
+
+            <h2>Recent Fakes</h2>
+
+              <ul>
+              {{
+                for my $fake (@recents) {
+                  $OUT .= sprintf(qq[<li><a
+                  href='fake/$fake->{ident}/$fake->{version}/about.txt'>$fake->{ident} $fake->{version}</a></li>\n]);
+                }
+              }}
+              </ul>
+            </div>
+          </td>
+
+        <td class="third">
+          <h2>Getting Started</h2>
+          <ul>
+            <li><a href="http://learn.perl.org/">Learn Perl</a></li>
+          </ul>
+
+          <h2>More Resources</h2>
+          <ul>
+
+            <li><a href="faq.html">Fake CPAN FAQ</a></li>
+            <li><a href="http://perl.plover.com/IAQ/IAQlist.html">Perl Infrequently Asked Questions</a></li>
+          </ul>
+        </td>
+      </tr>
+    </table>
+
+  </div>
+  </td>
+</tr>
+<tr>
+  <td id="footer">
+    <div id="footer_copyright">
+      <p>
+        Yours in mockery, Bizarro Librarian (<i>KOO!</i>)
+        of the Fake CPAN.
+
+        <br/>
+
+         &copy; 2010-2011 Jarkko Hietaniemi, Perl.org, and Ricardo Signes
+         All rights reserved.
+         <a href="disclaimer.html">Disclaimer</a>.
+      </p>
+    </div>
+
+    <div id="footer_mirror">
+      <p>Master Fake CPAN hosted by <a href="http://www.codesimply.com/"><img alt="(code (simply))" src="static/images/codesimply.png" /></a></p>
+
+    </div>
+
+  </td>
+</tr>
+</table>
+
+</body>
+</html>

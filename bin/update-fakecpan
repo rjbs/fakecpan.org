@@ -1,0 +1,200 @@
+#!/usr/bin/env perl
+use 5.12.0;
+use warnings;
+
+use autodie;
+use DateTime;
+use DateTime::Format::W3CDTF;
+use File::chdir;
+use File::Copy;
+use File::Find::Rule;
+use Getopt::Long::Descriptive;
+use JSON 2;
+use Log::Dispatchouli;
+use Path::Class;
+use Text::Template;
+
+my ($opt, $usage) = describe_options(
+  '%c %o',
+  [ 'root=s',           'the root of the fakecpan', { required => 1 } ],
+
+  # we will look here before looking in a sharedir or something -- rjbs,
+  # 2011-04-16
+  [ 'template-dir|t=s', 'the directory in which to find templates'    ],
+);
+
+my $Logger = Log::Dispatchouli->new({
+  ident     => 'update-fakecpan',
+  log_pid   => 0,
+  to_stdout => 1,
+});
+
+my $NOW = DateTime->now(time_zone => 'local');
+
+my $FAKECPAN_ROOT = dir($opt->root);
+my $FAKES_DIR     = $FAKECPAN_ROOT->subdir('fake');
+
+my $TEMPLATE_ROOT = dir($opt->template_dir || 'src');
+
+my @FAKE_NAMES = map { $_->dir_list(-1) } grep { -d } $FAKES_DIR->children;
+
+my @author_names = get_author_names($FAKES_DIR, \@FAKE_NAMES);
+my $size         = get_size($FAKES_DIR);
+
+my ($recent, $latest) = relink_latests($FAKECPAN_ROOT, \@FAKE_NAMES);
+
+my $module_count = count_modules($FAKES_DIR, \@FAKE_NAMES);
+
+rewrite_recent_json($FAKECPAN_ROOT, $recent);
+
+my %stash = (
+  build_date => \( $NOW->ymd ),
+  recents    => $recent,
+  latest     => $latest,
+  fake_names => \@FAKE_NAMES,
+  summary    => {
+    mb      => $size,
+    fakes   => 0+@FAKE_NAMES,
+    authors => 0+@author_names,
+    modules => $module_count,
+  },
+);
+
+for my $file ( File::Find::Rule->file->in( $TEMPLATE_ROOT ) ) {
+  my $rel_file = dir( $file )->relative($TEMPLATE_ROOT);
+
+  if ($file =~ /\.tmpl$/) {
+    (my $install_as = $rel_file) =~ s/\.tmpl$//;
+    $install_as = $FAKECPAN_ROOT->file( $install_as);
+
+    my $template = Text::Template->new(
+      TYPE   => 'file',
+      SOURCE => $file,
+      DELIMITERS => [ qw({{ }}) ],
+    );
+
+    $Logger->log("rendering $file to $install_as");
+
+    open my $out, '>', $install_as;
+    print { $out } $template->fill_in(HASH => \%stash);
+  } else {
+
+    my $install_as = $FAKECPAN_ROOT->file($rel_file);
+    $install_as->dir->mkpath;
+    $Logger->log("copying $file to $install_as");
+
+    copy $file => $install_as;
+  }
+}
+
+## SUBROUTINES LIE BENEATH THIS LINE
+
+sub get_author_names {
+  my ($fake_root, $fake_names) = @_;
+
+  my %author_id;
+  # This is probably the stupidest way to generate this, but it's what I've got,
+  # and I'm *tired*. -- rjbs, 2011-04-17
+  for my $fake (@$fake_names) {
+    my $fake_dir = $fake_root->subdir($fake);
+
+    for my $version (grep { -d and ! -l } $fake_dir->children) {
+      my @author_dirs = File::Find::Rule
+                      ->mindepth(3)
+                      ->maxdepth(3)
+                      ->directory
+                      ->in( $version->subdir(qw(cpan authors id)) );
+
+      $author_id{ dir($_)->dir_list(-1) } = 1 for @author_dirs;
+    }
+  }
+
+  return keys %author_id;
+}
+
+sub get_size {
+  my ($fake_root) = @_;
+
+  my $line = `du -sm $fake_root`;
+  my ($size) = split /\s/, $line;
+  return $size;
+}
+
+sub relink_latests {
+  my ($fakecpan_root, $fake_names) = @_;
+  my $fakes_dir = $fakecpan_root->subdir('fake');
+
+  my $recent = ! -e $fakecpan_root->file('recent.json') ? [] : do {
+    open my $recent_in, '<', $fakecpan_root->file('recent.json');
+    my $recent_json = do { local $/; <$recent_in> };
+    JSON->new->decode($recent_json);
+  };
+
+  my $w3c = DateTime::Format::W3CDTF->new;
+
+  my %latest;
+
+  FAKE: for my $fake (@$fake_names) {
+    my $fake_dir = $fakes_dir->subdir($fake);
+    $Logger->log_debug("looking for dirs in $fake_dir");
+    my @vers = sort { $b cmp $a }
+               map  { $_->dir_list(-1) }
+               grep { -d and not -l }
+               $fake_dir->children;
+
+    my $latest = $vers[0];
+    $latest{ $fake } = $latest;
+
+    my $latest_link = $fake_dir->file('latest');
+
+    $Logger->log("going to make $latest the latest for $fake ($latest_link)");
+
+    if (-e $latest_link) {
+      next FAKE if readlink($latest_link) eq $latest;
+      unlink $latest_link;
+    }
+
+    unless (
+      grep { $_->{ident} eq $fake and $_->{version} eq $latest } @$recent
+    ) {
+      unshift @$recent, {
+        ident      => $fake,
+        version    => $latest,
+        indexed_at => $w3c->format_datetime( $NOW ),
+      };
+    }
+
+    $Logger->log([  "symlink %s => %s\n", $latest, $fake_dir->file('latest') ]);
+    symlink $latest => $fake_dir->file('latest');
+  }
+
+  $#$recent = 9 if @$recent > 10;
+
+  return($recent, \%latest);
+}
+
+sub rewrite_recent_json {
+  my ($fakecpan_root, $recent) = @_;
+
+  open my $json_out, '>', $fakecpan_root->file('recent.json');
+  print { $json_out } JSON->new->ascii(1)->encode($recent), "\n";
+  close $json_out;
+}
+
+sub count_modules {
+  my ($fakes_dir, $fake_names) = @_;
+
+  my $module_count = 0;
+  for my $fake (@$fake_names) {
+    my $index    = $fakes_dir->subdir($fake)->file(qw(
+      latest cpan modules 02packages.details.txt.gz
+    ));
+    my $contents = `gzcat $index`;
+    my ($header, $rest) = split /^$/m, $contents;
+    my @lines = split /\n/, $rest;
+    $module_count += @lines;
+  }
+
+  return $module_count;
+}
+
