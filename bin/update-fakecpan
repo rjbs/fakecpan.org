@@ -25,8 +25,11 @@ my ($opt, $usage) = describe_options(
 
 my $Logger = Log::Dispatchouli->new({
   ident     => 'update-fakecpan',
+  log_pid   => 0,
   to_stdout => 1,
 });
+
+my $NOW = DateTime->now(time_zone => 'local');
 
 my $FAKECPAN_ROOT = dir($opt->root);
 my $FAKES_DIR     = $FAKECPAN_ROOT->subdir('fake');
@@ -45,7 +48,7 @@ my $module_count = count_modules($FAKES_DIR, \@FAKE_NAMES);
 rewrite_recent_json($FAKECPAN_ROOT, $recent);
 
 my %stash = (
-  build_date => \( DateTime->now(time_zone => 'local')->ymd ),
+  build_date => \( $NOW->ymd ),
   recents    => $recent,
   latest     => $latest,
   fake_names => \@FAKE_NAMES,
@@ -151,12 +154,15 @@ sub relink_latests {
       unlink $latest_link;
     }
 
-    unshift @$recent, {
-      ident      => $fake,
-      version    => $latest,
-      indexed_at => $w3c->format_datetime(DateTime->now(time_zone => 'local')),
-    };
-
+    unless (
+      grep { $_->{ident} eq $fake and $_->{version} eq $latest } @$recent
+    ) {
+      unshift @$recent, {
+        ident      => $fake,
+        version    => $latest,
+        indexed_at => $w3c->format_datetime( $NOW ),
+      };
+    }
 
     $Logger->log([  "symlink %s => %s\n", $latest, $fake_dir->file('latest') ]);
     symlink $latest => $fake_dir->file('latest');
